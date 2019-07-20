@@ -1,0 +1,195 @@
+Description: ECS Basic Setup
+
+Parameters: 
+  ProjectName:
+    Type: String
+    Default: "devopslabs"
+  ProjectVpcCidr:
+    Type: String
+    Default: "172.16.0.0/16"
+  ProjectSubnetPvtCidr1:
+    Type: String
+    Default: "172.16.0.0/18"
+  ProjectSubnetPvtCidr2:
+    Type: String
+    Default: "172.16.64.0/18"
+  ProjectSubnetPubCidr1:
+    Type: String
+    Default: "172.16.128.0/18"
+  ProjectSubnetPubCidr2:
+    Type: String
+    Default: "172.16.192.0/18"
+  ProjectSubnetPvtCidr1AZ:
+    Type: String
+    Default: us-east-1a
+  ProjectSubnetPvtCidr2AZ:
+    Type: String
+    Default: us-east-1b
+  ProjectSubnetPubCidr1AZ:
+    Type: String
+    Default: us-east-1c
+  ProjectSubnetPubCidr2AZ:
+    Type: String
+    Default: us-east-1d
+  ProjectClusterDevEnvName:
+    Type: String
+    Default: QA
+  ProjectClusterStgEnvName:
+    Type: String
+    Default: Stage
+  ProjectClusterPrdEnvName:
+    Type: String
+    Default: Prod
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: !Ref ProjectVpcCidr
+      EnableDnsSupport: no
+      EnableDnsHostnames: no
+      InstanceTenancy: "default"
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'VPC']]
+
+  SubnetPrivate1:
+    Type: AWS::EC2::Subnet
+    DependsOn: VPC
+    Properties:
+      AvailabilityZone: !Ref ProjectSubnetPvtCidr1AZ
+      CidrBlock: !Ref ProjectSubnetPvtCidr1
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'Pvt', !Ref ProjectSubnetPvtCidr1]]
+        - Key: Layer
+          Value: Network
+
+  SubnetPrivate2:
+    Type: AWS::EC2::Subnet
+    DependsOn: VPC
+    Properties:
+      AvailabilityZone: !Ref ProjectSubnetPvtCidr2AZ
+      CidrBlock: !Ref ProjectSubnetPvtCidr2
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'Pvt', !Ref ProjectSubnetPvtCidr2]]
+        - Key: Layer
+          Value: Network
+
+  SubnetPub1:
+    Type: AWS::EC2::Subnet
+    DependsOn: VPC
+    Properties:
+      # AssignIpv6AddressOnCreation: true
+      AvailabilityZone: !Ref ProjectSubnetPubCidr1AZ
+      CidrBlock: !Ref ProjectSubnetPubCidr1
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'Pub', !Ref ProjectSubnetPubCidr1]]
+        - Key: Layer
+          Value: Network
+
+  SubnetPub2:
+    Type: AWS::EC2::Subnet
+    DependsOn: VPC
+    Properties:
+      # AssignIpv6AddressOnCreation: true
+      AvailabilityZone: !Ref ProjectSubnetPubCidr2AZ
+      CidrBlock: !Ref ProjectSubnetPubCidr2
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'Pub', !Ref ProjectSubnetPubCidr2]]
+        - Key: Layer
+          Value: Network
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn: [VPC]
+    Properties:
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'igw']]
+
+  VPCGatewayAttachmentInternet:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DependsOn: [VPC, InternetGateway]
+    Properties: 
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  RouteTablePub0:
+    Type: AWS::EC2::RouteTable
+    DependsOn: [SubnetPub1, SubnetPub2]
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'rtb', 'Pub']]
+
+  RouteToInternet:
+    Type: AWS::EC2::Route
+    DependsOn: [RouteTablePub0, InternetGateway]
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTablePub0
+
+  SubnetRouteTableAssociationPublic1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: [SubnetPub1, RouteTablePub0]
+    Properties:
+      SubnetId: !Ref SubnetPub1
+      RouteTableId: !Ref RouteTablePub0
+
+  SubnetRouteTableAssociationPublic2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: [SubnetPub2, RouteTablePub0]
+    Properties:
+      SubnetId: !Ref SubnetPub2
+      RouteTableId: !Ref RouteTablePub0
+
+  EcsDevelop:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Join ['-', [!Ref ProjectName, !Ref ProjectClusterDevEnvName]]
+  EcsStage:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Join ['-', [!Ref ProjectName, !Ref ProjectClusterStgEnvName]]
+  EcsProduction:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Join ['-', [!Ref ProjectName, !Ref ProjectClusterPrdEnvName]]
+
+Outputs:
+  VPCId:
+    Description: The ID of the VPC that this stack is deployed in
+    Value: !Ref VPC
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'VPCId' ] ]
+  ClusterDev:
+    Description: The name of the ECS cluster
+    Value: !Ref EcsDevelop
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'ClusterName' ] ]

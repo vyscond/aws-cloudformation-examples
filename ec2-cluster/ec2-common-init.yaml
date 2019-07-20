@@ -1,0 +1,6 @@
+Metadata:
+    AWS::CloudFormation::Init:
+        config:
+            commands:
+                test:
+                    command: "yum update -y"

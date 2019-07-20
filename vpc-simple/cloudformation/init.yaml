@@ -1,0 +1,124 @@
+Description: ECS Basic Setup
+
+Parameters: 
+  ProjectName:
+    Type: String
+  ProjectVpcCidr:
+    Type: String
+    Default: "172.16.0.0/16"
+  ProjectSubnetPvtCidr:
+    Type: String
+    Default: "172.16.0.0/18"
+  ProjectSubnetPubCidr:
+    Type: String
+    Default: "172.16.64.0/18"
+  ProjectSubnetLabCidr:
+    Type: String
+    Default: "172.16.128.0/18"
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: !Ref ProjectVpcCidr
+      EnableDnsSupport: no
+      EnableDnsHostnames: no
+      InstanceTenancy: "default"
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'VPC']]
+  SubnetPrivate:
+    Type: AWS::EC2::Subnet
+    DependsOn: VPC
+    Properties:
+      # AssignIpv6AddressOnCreation: false
+      # AvailabilityZone: String
+      CidrBlock: !Ref ProjectSubnetPvtCidr
+      # Ipv6CidrBlock: String
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'Pvt', !Ref ProjectSubnetPvtCidr]]
+        - Key: Layer
+          Value: Network
+  SubnetPublic:
+    Type: AWS::EC2::Subnet
+    DependsOn: VPC
+    Properties:
+      # AssignIpv6AddressOnCreation: false
+      # AvailabilityZone: String
+      CidrBlock: !Ref ProjectSubnetPubCidr
+      # Ipv6CidrBlock: String
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'Pub', !Ref ProjectSubnetPubCidr]]
+        - Key: Layer
+          Value: Network
+  SubnetLaboratory:
+    Type: AWS::EC2::Subnet
+    DependsOn: VPC
+    Properties:
+      # AssignIpv6AddressOnCreation: false
+      # AvailabilityZone: String
+      CidrBlock: !Ref ProjectSubnetLabCidr
+      # Ipv6CidrBlock: String
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'Lab', !Ref ProjectSubnetLabCidr]]
+        - Key: Layer
+          Value: Network
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn: [VPC]
+    Properties:
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'igw']]
+
+  VPCGatewayAttachmentInternet:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DependsOn: [VPC, InternetGateway]
+    Properties: 
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  RouteTablePublic:
+    Type: AWS::EC2::RouteTable
+    DependsOn: [SubnetPublic, SubnetLaboratory]
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'rtb', 'Pub']]
+
+  RouteToInternet:
+    Type: AWS::EC2::Route
+    DependsOn: [RouteTablePublic, InternetGateway]
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTablePublic
+
+  SubnetRouteTableAssociationPublic:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: [SubnetPublic, RouteTablePublic]
+    Properties:
+      SubnetId: !Ref SubnetPublic
+      RouteTableId: !Ref RouteTablePublic
+

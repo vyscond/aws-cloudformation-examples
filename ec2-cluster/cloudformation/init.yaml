@@ -1,0 +1,118 @@
+Description: Docker Swarm EC2 setup
+
+Parameters: 
+    KeyPairName: 
+        Type: AWS::EC2::KeyPair::KeyName
+
+    ProjectName:
+        Type: String
+
+Resources:
+    SecurityGroupBastion:
+        Type: AWS::EC2::SecurityGroup
+        Properties: 
+            GroupName: !Join ['-', [!Ref ProjectName, 'SG', 'Bastion']]
+            GroupDescription: Allow access to our Bastion Instance
+            SecurityGroupIngress:
+                - IpProtocol: tcp
+                  FromPort: 22
+                  ToPort: 22
+                  CidrIp: 0.0.0.0/0
+            Tags:
+                - Key: Layer
+                  Value: Network
+            # VpcId: String
+
+    SecurityGroupCluster:
+        Type: AWS::EC2::SecurityGroup
+        DependsOn: SecurityGroupBastion
+        Properties: 
+            GroupName: !Join ['-', [!Ref ProjectName, 'SG', 'Cluster']]
+            GroupDescription: Allow access to Cluster instance only through Bastion IP
+            SecurityGroupIngress:
+                - SourceSecurityGroupName: !Ref SecurityGroupBastion
+                  IpProtocol: tcp
+                  FromPort: 22
+                  ToPort: 22
+            Tags:
+                - Key: Layer
+                  Value: Network
+            # VpcId: String
+
+    EC2Bastion:
+        Type: AWS::EC2::Instance
+        DependsOn: SecurityGroupBastion
+        Properties: 
+            ImageId: ami-0b8d86d4bf91850af  # Base Amazon Linux
+            InstanceType: t2.micro
+            KeyName: !Ref KeyPairName
+            Monitoring: true
+            SecurityGroups:
+                - !Ref SecurityGroupBastion
+            BlockDeviceMappings:
+                - DeviceName: /dev/sda1
+                  Ebs:
+                    VolumeSize: 8
+                    DeleteOnTermination: True
+                    VolumeType: gp2
+            Tags:
+                - Key: Name
+                  Value: !Join ['-', [!Ref ProjectName, 'Bastion', '1']]
+                - Key: Project
+                  Value: !Ref ProjectName
+                - Key: Layer
+                  Value: Servers
+                - Key: ClusterRole
+                  Value: Bastion
+
+    EC2Master:
+        Type: AWS::EC2::Instance
+        DependsOn: SecurityGroupCluster
+        Properties: 
+            ImageId: ami-0b8d86d4bf91850af  # Base Amazon Linux
+            InstanceType: t2.micro
+            KeyName: !Ref KeyPairName
+            Monitoring: true
+            SecurityGroups:
+                - !Ref SecurityGroupCluster
+            BlockDeviceMappings:
+                - DeviceName: /dev/sda1
+                  Ebs:
+                    VolumeSize: 8
+                    DeleteOnTermination: True
+                    VolumeType: gp2
+            Tags:
+                - Key: Name
+                  Value: !Join ['-', [!Ref ProjectName, 'Master', '1']]
+                - Key: Project
+                  Value: !Ref ProjectName
+                - Key: Layer
+                  Value: Servers
+                - Key: ClusterRole
+                  Value: Master
+
+    EC2Slave1:
+        Type: AWS::EC2::Instance
+        DependsOn: SecurityGroupCluster
+        Properties: 
+            ImageId: ami-0b8d86d4bf91850af  # Base Amazon Linux
+            InstanceType: t2.micro
+            KeyName: !Ref KeyPairName
+            Monitoring: true
+            SecurityGroups:
+                - !Ref SecurityGroupCluster
+            BlockDeviceMappings:
+                - DeviceName: /dev/sda1
+                  Ebs:
+                    VolumeSize: 8
+                    DeleteOnTermination: True
+                    VolumeType: gp2
+            Tags:
+                - Key: Name
+                  Value: !Join ['-', [!Ref ProjectName, 'Slave', '1']]
+                - Key: Project
+                  Value: !Ref ProjectName
+                - Key: Layer
+                  Value: Servers
+                - Key: ClusterRole
+                  Value: Slave

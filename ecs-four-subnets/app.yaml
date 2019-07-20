@@ -1,0 +1,100 @@
+Description: Tasks as Services for ECS Cluster
+
+# Fargate - CPU/Mem
+# 256 (.25 vCPU) - Available memory values: 0.5GB, 1GB, 2GB
+# 512 (.5 vCPU) - Available memory values: 1GB, 2GB, 3GB, 4GB
+# 1024 (1 vCPU) - Available memory values: 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB
+# 2048 (2 vCPU) - Available memory values: Between 4GB and 16GB in 1GB increments
+# 4096 (4 vCPU) - Available memory values: Between 8GB and 30GB in 1GB increments
+
+Parameters:
+  ProjectName:
+    Type: String
+  ProjectClusterDevEnvName:
+    Type: String
+    Default: EcsClusterDevName
+  # ProjectClusterStgEnvName:
+  #   Type: String
+  #   Default: !Join [':', [!Ref ProjectName, 'ECS-Stage']]
+  # ProjectClusterPrdEnvName:
+  #   Type: String
+  #   Default: !Join [':', [!Ref ProjectName, 'ECS-Production']]
+  # ProjectEcsTaskName:
+  #   Type: String
+  #   Default: !Join [':', [!Ref ProjectName, 'Task', 'Dev', 'HelloWorld']]
+  ProjectEcsTaskContainerName:
+    Type: String
+    Default: 'helloword'
+  ProjectEcsTaskCpu:
+    Type: Number
+    Default: 256
+  ProjectEcsTaskContainerCpu:
+    Type: Number
+    Default: 100
+  ProjectEcsTaskContainerMemory:
+    Type: Number
+    Default: 512
+  ProjectEcsTaskContainerPort:
+    Type: Number
+    Default: 80
+  ProjectEcsTaskHostPort:
+    Type: Number
+    Default: 0
+  ProjectEcsTaskContainerCount:
+    Type: Number
+    Default: 1
+  ProjectEcsTaskContainerImageUrl:
+    Type: String
+    Default: 'tutum/hello-world'
+  ProjectEcsServiceDevName:
+    Type: String
+    Default: EcsServiceDev
+
+Resources:
+  TaskDefinitionHelloWorld:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      # Family: !Ref ProjectEcsTaskName
+      Cpu: !Ref ProjectEcsTaskCpu
+      Memory: !Ref ProjectEcsTaskContainerMemory
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      # ExecutionRoleArn:
+      #   Fn::ImportValue:
+      #     !Join [':', [!Ref 'StackName', 'ECSTaskExecutionRole']]
+      # TaskRoleArn: !Ref "AWS::NoValue"
+      ContainerDefinitions:
+        - Name: !Join ['-', [!Ref ProjectName, !Ref ProjectEcsTaskContainerName]]
+          Cpu: !Ref ProjectEcsTaskContainerCpu
+          Memory: !Ref ProjectEcsTaskContainerMemory
+          Image: !Ref ProjectEcsTaskContainerImageUrl
+          PortMappings:
+            - ContainerPort: !Ref ProjectEcsTaskContainerPort
+              HostPort: !Ref ProjectEcsTaskHostPort
+
+  ServiceDev:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Join [':', [!Ref ProjectName, !Ref ProjectEcsServiceDevName]]
+      Cluster:
+        - Fn::ImportValue: !Join [':', [!Ref ProjectName, !Ref ProjectClusterDevEnvName]]
+      LaunchType: FARGATE
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 75
+      DesiredCount: !Ref ProjectEcsTaskContainerCount
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - Fn::ImportValue: !Join [':', [!Ref ProjectName, 'FargateContainerSecurityGroup']]
+          Subnets:
+            - Fn::ImportValue: !Join [':', [!Ref ProjectName, 'SubnetPvt1Id']]
+            - Fn::ImportValue: !Join [':', [!Ref ProjectName, 'SubnetPvt2Id']]
+      TaskDefinition: !Ref TaskDefinitionHelloWorld
+      LoadBalancers:
+        - ContainerName: !Ref ProjectEcsTaskContainerName
+          ContainerPort: !Ref ProjectEcsTaskContainerPort
+          TargetGroupArn:
+            - Fn::ImportValue: !Join [':', [!Ref ProjectName, "TargetGroupPvtARN"]]

@@ -1,0 +1,134 @@
+Description: ELB Setup for ECS Cluster
+
+Parameters:
+  ProjectName:
+    Type: String
+  ExistingCertificateArn:
+    Type: String
+    Default: "arn:aws:acm:us-east-1:210052931516:certificate/ad1261d9-243c-45a7-825a-f26440c6bbac"
+  ProjectClusterDevEnvName:
+    Type: String
+    Default: QA
+  ProjectClusterStgEnvName:
+    Type: String
+    Default: Stage
+  ProjectClusterPrdEnvName:
+    Type: String
+    Default: Production
+
+Resources:
+  # Networking
+  SecurityGroupELBPub:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join ['-', [!Ref ProjectName, 'SG', 'ELB', 'Pub']]
+      GroupDescription: Access to the public facing load balancer (HTTP/HTTPS)
+      VpcId:
+        Fn::ImportValue: !Join [':', [!Ref ProjectName, 'VpcId' ]]
+      SecurityGroupIngress:
+          # Allow access to ALB from anywhere on the internet
+          - CidrIp: 0.0.0.0/0
+            IpProtocol: -1
+            FromPort: 80
+          - CidrIp: 0.0.0.0/0
+            IpProtocol: -1
+            FromPort: 443
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'SG', 'ELB', 'Ingress', 'HTTP_HTTPS']]
+
+  ELBTargetGroupPvt:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Join ['-', [!Ref ProjectName, 'TG', 'Pvt']]
+      HealthCheckIntervalSeconds: 6
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      VpcId:
+        Fn::ImportValue: !Join [':', [!Ref ProjectName, 'VpcId' ]]
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'ELB', 'TargetGroup', 'Pvt']]
+
+  ELBLoadBalancerPub:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Subnets:
+        - Fn::ImportValue: !Join [':', [!Ref ProjectName, 'SubnetPub1Id']]
+        - Fn::ImportValue: !Join [':', [!Ref ProjectName, 'SubnetPub2Id']]
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, 'ELB', 'ECS']]
+
+  ELBListenerPubHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn: [ELBLoadBalancerPub]
+    Properties:
+      LoadBalancerArn: !Ref ELBLoadBalancerPub
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - TargetGroupArn: !Ref ELBTargetGroupPvt
+          Type: 'forward'
+
+  ELBListenerPubHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn: [ELBLoadBalancerPub]
+    Properties:
+      LoadBalancerArn: !Ref ELBLoadBalancerPub
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref ExistingCertificateArn
+      DefaultActions:
+        - TargetGroupArn: !Ref ELBTargetGroupPvt
+          Type: 'forward'
+
+  EcsClusterDev:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Join ['-', [!Ref ProjectName, !Ref ProjectClusterDevEnvName]]
+
+  EcsClusterStg:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Join ['-', [!Ref ProjectName, !Ref ProjectClusterStgEnvName]]
+
+  EcsClusterPrd:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Join ['-', [!Ref ProjectName, !Ref ProjectClusterPrdEnvName]]
+
+Outputs:
+  EcsClusterDevName:
+    Description: The Name of the ECS Cluster for develop
+    Value: !Ref EcsClusterDev
+    Export:
+      Name: !Join [':', [!Ref ProjectName, 'EcsClusterDevName']]
+  EcsClusterStgName:
+    Description: The Name of the ECS Cluster for stage
+    Value: !Ref EcsClusterStg
+    Export:
+      Name: !Join [':', [!Ref ProjectName, 'EcsClusterStgName']]
+  EcsClusterPrdName:
+    Description: The Name of the ECS Cluster for production
+    Value: !Ref EcsClusterPrd
+    Export:
+      Name: !Join [':', [!Ref ProjectName, 'EcsClusterPrdName']]
+  ELBTargetGroupPvtArn:
+    Description: The ARN of our Target Group for private Subnets
+    Value: !Ref ELBTargetGroupPvt
+    Export:
+      Name: !Join [':', [!Ref ProjectName, 'ELBTargetGroupPvtARN']]

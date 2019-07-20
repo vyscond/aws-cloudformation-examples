@@ -1,0 +1,71 @@
+Resources:
+    VPC:
+        Type: AWS::EC2::VPC
+        Properties: 
+            CidrBlock: "10.0.0.0/16"
+            EnableDnsSupport: true
+            EnableDnsHostnames: true
+            InstanceTenancy: "default"
+            Tags:
+                - project: dockerwarm
+                - layer: network
+    
+    InternetGateway:
+        Type: AWS::EC2::InternetGateway
+        DependsOn: VPC
+
+    AttachGateway:
+        Type: AWS::EC2::VPCGatewayAttachment
+        # Notice how you can't attach an IGW to a VPC unless both are created:
+        Properties:
+            VpcId: !Ref VPC
+            InternetGatewayId: !Ref InternetGateway
+
+    DockerSwarmMaster:
+        Type: AWS::EC2::Instance
+        Properties: 
+            # Affinity: String
+            AvailabilityZone: sa-east-1
+            # BlockDeviceMappings: 
+            #   - EC2 Block Device Mapping
+            # CreditSpecification: CreditSpecification
+            DisableApiTermination: False
+            EbsOptimized: True
+            # ElasticGpuSpecifications: [ ElasticGpuSpecification, ... ]
+            # ElasticInferenceAccelerators: 
+            #   - ElasticInferenceAccelerator
+            # HostId: String
+            # IamInstanceProfile: String
+            ImageId: ami-0b8d86d4bf91850af
+            # InstanceInitiatedShutdownBehavior: String
+            InstanceType: 2.micro
+            # Ipv6AddressCount: Integer
+            # Ipv6Addresses:
+            #   - IPv6 Address Type
+            # KernelId: String
+            KeyName: rancher-test
+            # LaunchTemplate: LaunchTemplateSpecification
+            # LicenseSpecifications: 
+            #   - LicenseSpecification
+            Monitoring: true
+            NetworkInterfaces: 
+                    - EC2 Network Interface
+            PlacementGroupName: String
+            PrivateIpAddress: String
+            RamdiskId: String
+            SecurityGroupIds: 
+                - asd
+            SecurityGroups: 
+                - asd
+            SourceDestCheck: true
+            #SsmAssociations: 
+            #        - SSMAssociation
+            SubnetId: String
+            #Tenancy: String
+            #UserData: String
+            #Volumes: 
+            #    - EC2 MountPoint
+            AdditionalInfo: String
+            Tags: 
+                - project: dockerwarm
+                - layer: servers
