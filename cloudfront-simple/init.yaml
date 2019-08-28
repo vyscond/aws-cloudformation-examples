@@ -1,0 +1,156 @@
+Description: Minimal CloudFront with S3
+
+Parameters:
+  CompanyName:
+    Type: String
+    Default: Vyscond
+  ProjectName:
+    Type: String
+    Default: Hello
+  BucketName:
+    Type: String
+    Default: hello
+
+
+Resources:
+  HelloBucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      BucketName: !Ref BucketName
+      AccelerateConfiguration: 
+        AccelerateConfiguration
+      AccessControl: String
+      AnalyticsConfigurations: 
+        - AnalyticsConfiguration
+      BucketEncryption: 
+        BucketEncryption 
+      CorsConfiguration: 
+        CorsConfiguration
+      InventoryConfigurations: 
+        - InventoryConfiguration
+      LifecycleConfiguration: 
+        LifecycleConfiguration
+      LoggingConfiguration: 
+        LoggingConfiguration
+      MetricsConfigurations: 
+        - MetricsConfiguration
+      NotificationConfiguration: 
+        NotificationConfiguration
+      ObjectLockConfiguration: 
+        ObjectLockConfiguration
+      ObjectLockEnabled: Boolean
+      PublicAccessBlockConfiguration: 
+        PublicAccessBlockConfiguration
+      ReplicationConfiguration: 
+        ReplicationConfiguration
+      VersioningConfiguration: 
+        VersioningConfiguration
+      # WebsiteConfiguration: 
+      #   WebsiteConfiguration
+      Tags: 
+        - Name: Company
+          Value: !Ref CompanyName
+        - Name: Project
+          Value: !Ref ProjectName
+
+
+  HelloOrigin:
+    Type: AWS::CloudFront::Distribution Origin
+    Properties:
+      DomainName: !Sub ${BucketName}.s3.amazonaws.com
+      # CustomOriginConfig: 
+      #   CustomOriginConfig
+      # OriginPath: String
+      Id: !Sub S3-${BucketName}
+      S3OriginConfig: 
+        OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${HelloBucket.Name}
+      # OriginCustomHeaders: 
+      #   - OriginCustomHeader
+
+  HelloBehavior:
+    Type: AWS::CloudFront::Distribution CacheBehavior
+    Properties:
+      PathPattern: hello
+      TargetOriginId: !Ref HelloOrigin
+      ViewerProtocolPolicy: allow-all
+      AllowedMethods:
+        - GET
+        - HEAD
+        - OPTIONS
+        - PUT
+        - PATCH
+        - POST
+        - DELETE
+      CachedMethods: 
+        - GET  # Cached by default
+        - HEAD  # Cached by default
+        - OPTIONS
+      ForwardedValues: 
+        Cookies: 
+          Forward: all  # Enough for S3
+          # WhitelistedNames:  # Only needed if "Forward" is set to "whitelist"
+          #   - CookieName
+        Headers: 
+          - Access-Control-Request-Headers
+          - Access-Control-Request-Method
+          - Authorization
+          - CloudFront-Forwarded-Proto
+          - Origin
+          - Referer
+        QueryString: true
+        # QueryStringCacheKeys:  # The ones you only want cached 
+        #   - String
+      # DefaultTTL: Double
+      # MaxTTL: Double
+      # MinTTL: Double
+      # FieldLevelEncryptionId: String
+      # SmoothStreaming: Boolean
+      # TrustedSigners: 
+      #   - String
+      Compress: true
+      # LambdaFunctionAssociations: 
+      #   - LambdaFunctionAssociation
+
+  HelloAnyBehavior:
+    Type: AWS::CloudFront::Distribution CacheBehavior
+    Properties:
+      PathPattern: hello
+      TargetOriginId: !Ref HelloOrigin
+      ViewerProtocolPolicy: allow-all
+      AllowedMethods:
+        - GET
+        - HEAD
+        - OPTIONS
+        - PUT
+        - PATCH
+        - POST
+        - DELETE
+      CachedMethods: 
+        - GET  # Cached by default
+        - HEAD  # Cached by default
+        - OPTIONS
+      ForwardedValues: 
+        Cookies: 
+          Forward: all  # Enough for S3
+          # WhitelistedNames:  # Only needed if "Forward" is set to "whitelist"
+          #   - CookieName
+        Headers: 
+          - Access-Control-Request-Headers
+          - Access-Control-Request-Method
+          - Authorization
+          - CloudFront-Forwarded-Proto
+          - Origin
+          - Referer
+        QueryString: true
+        # QueryStringCacheKeys:  # The ones you only want cached 
+        #   - String
+      # DefaultTTL: Double
+      # MaxTTL: Double
+      # MinTTL: Double
+      # FieldLevelEncryptionId: String
+      # SmoothStreaming: Boolean
+      # TrustedSigners: 
+      #   - String
+      Compress: true
+      # LambdaFunctionAssociations: 
+      #   - LambdaFunctionAssociation
